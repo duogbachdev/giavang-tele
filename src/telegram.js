@@ -21,6 +21,16 @@ export function initBot(token, onMessage) {
   return bot;
 }
 
+export async function stopBot() {
+  if (!bot?.isPolling()) return;
+  try {
+    await bot.stopPolling({ cancel: true });
+    console.log('[Telegram] Da dung polling');
+  } catch (err) {
+    console.error('[Telegram] Stop polling error:', err.message);
+  }
+}
+
 export async function sendMessage(chatId, text) {
   if (!bot) throw new Error('Bot chua khoi tao. Goi initBot truoc.');
   try {

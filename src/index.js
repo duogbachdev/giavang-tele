@@ -4,7 +4,7 @@ import { fetchSJC } from './sources/sjc.js';
 import { fetchDOJI } from './sources/doji.js';
 import { fetchPNJ } from './sources/pnj.js';
 import { fetchBTMC } from './sources/btmc.js';
-import { initBot, sendMessage } from './telegram.js';
+import { initBot, sendMessage, stopBot } from './telegram.js';
 import { formatMessage, diffSnapshots } from './formatter.js';
 
 const config = {
@@ -28,6 +28,7 @@ let prevSnapshots = null;
 let scanCount = 0;
 let lastScanAt = null;
 let lastError = null;
+let healthServer = null;
 
 async function scanAll() {
   const tasks = config.sources
@@ -120,7 +121,7 @@ async function tick() {
 
 // HTTP server cho Render health check
 function startHealthServer() {
-  const server = http.createServer((req, res) => {
+  healthServer = http.createServer((req, res) => {
     if (req.url === '/health' || req.url === '/') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
@@ -136,9 +137,16 @@ function startHealthServer() {
       res.end('Not found');
     }
   });
-  server.listen(config.port, () => {
+  healthServer.listen(config.port, () => {
     console.log(`[HTTP] Health server listening on :${config.port}`);
   });
+}
+
+async function shutdown(signal) {
+  console.log(`[Shutdown] ${signal}`);
+  await stopBot();
+  healthServer?.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000).unref();
 }
 
 async function main() {
@@ -165,3 +173,6 @@ main().catch(err => {
   console.error('[Fatal]', err);
   process.exit(1);
 });
+
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
