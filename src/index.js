@@ -37,6 +37,40 @@ async function scanAll() {
   return results.filter(Boolean);
 }
 
+async function handleTelegramMessage(message) {
+  const text = message.text?.trim();
+  if (!text) return;
+
+  const chatId = message.chat.id;
+  const command = text.split(/\s+/)[0].toLowerCase().split('@')[0];
+
+  if (command === '/start' || command === '/help') {
+    await sendMessage(chatId, '*BOT GIA VANG*\n\nGui /gia de xem gia vang hien tai.');
+    return;
+  }
+
+  if (command === '/gia') {
+    await sendMessage(chatId, '_Dang lay gia vang, vui long cho..._');
+    try {
+      const snapshots = await scanAll();
+      if (snapshots.length === 0) {
+        await sendMessage(chatId, 'Khong lay duoc du lieu gia vang luc nay.');
+        return;
+      }
+      await sendMessage(chatId, formatMessage(snapshots, { isCurrent: true }));
+    } catch (err) {
+      console.error('[Telegram] /gia error:', err.message);
+      await sendMessage(chatId, 'Khong lay duoc du lieu gia vang luc nay.');
+    }
+    return;
+  }
+
+  // Trong group chi phan hoi lenh, tranh bot tra loi moi tin nhan.
+  if (message.chat.type === 'private') {
+    await sendMessage(chatId, 'Gui /gia de xem gia vang hien tai.');
+  }
+}
+
 async function tick() {
   scanCount++;
   console.log(`\n[Scan #${scanCount}] ${new Date().toISOString()}`);
@@ -55,7 +89,7 @@ async function tick() {
     return;
   }
 
-  console.log(`[Scan] OK ${snapshots.length}/${config.sources.length} nguon`);
+  console.log(`[Scan] OK ${snapshots.length}/${config.sources.length} nguon: ${snapshots.map(s => s.source).join(', ')}`);
   lastScanAt = new Date().toISOString();
   lastError = null;
 
@@ -113,7 +147,7 @@ async function main() {
     process.exit(1);
   }
 
-  initBot(config.token);
+  initBot(config.token, handleTelegramMessage);
   startHealthServer();
 
   console.log('[Boot] Cau hinh:', {

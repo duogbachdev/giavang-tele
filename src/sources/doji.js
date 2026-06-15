@@ -2,8 +2,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 
 // DOJI - lay tu endpoint cong khai update.giavang.doji.vn (XML feed)
-// Don vi: nghin VND/chi -> can nhan 1000 va voi luong (1 luong = 10 chi)
-// Thuc te du lieu: 13100 = 13,100,000 VND/luong (don vi nghin/luong)
+// Don vi API: nghin VND/chi. Quy doi sang VND/luong (1 luong = 10 chi).
 export async function fetchDOJI() {
   try {
     const url = 'http://update.giavang.doji.vn/banggia/doji_92411/2';
@@ -28,8 +27,8 @@ export async function fetchDOJI() {
         if (buyNum <= 0 || sellNum <= 0) return;
         items.push({
           name: name.trim(),
-          buy: buyNum * 1000,  // nghin -> VND
-          sell: sellNum * 1000
+          buy: buyNum * 10000,
+          sell: sellNum * 10000
         });
       }
     });

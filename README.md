@@ -9,6 +9,7 @@ Tool Node.js quet gia vang Vietnam realtime tu nhieu nguon (SJC, DOJI, PNJ, BTMC
 - Bao cao dinh ky moi N lan quet (tuy chon)
 - HTTP health endpoint cho Render free tier (chong sleep)
 - 4 nguon: SJC, DOJI, PNJ, BTMC
+- Moi nguoi dung co the gui `/gia` de nhan gia vang trong chat cua ho
 
 ## Cai dat local
 
@@ -79,6 +80,14 @@ Render free se sleep sau 15 phut khong co request. Co 2 cach giu thuc:
 | `PERIODIC_REPORT_EVERY` | 12 | Bao cao dinh ky moi N lan quet (12 = moi 1h neu interval 5p) |
 | `SOURCES` | sjc,doji,pnj,btmc | Cac nguon can quet |
 | `PORT` | 3000 | Port HTTP server |
+
+## Lenh Telegram
+
+- `/start` hoac `/help`: Hien huong dan
+- `/gia`: Lay va gui gia vang hien tai vao dung cuoc chat vua yeu cau
+
+`TELEGRAM_CHAT_ID` chi la noi nhan thong bao tu dong. Cac lenh tren se phan hoi
+truc tiep cho bat ky nguoi dung nao da mo bot va bam Start.
 
 ## Cau truc
 

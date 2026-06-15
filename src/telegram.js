@@ -2,10 +2,22 @@ import TelegramBot from 'node-telegram-bot-api';
 
 let bot = null;
 
-export function initBot(token) {
+export function initBot(token, onMessage) {
   if (!token) throw new Error('TELEGRAM_BOT_TOKEN is required');
-  // polling: false vi day la bot 1 chieu (chi gui di)
-  bot = new TelegramBot(token, { polling: false });
+  bot = new TelegramBot(token, { polling: true });
+
+  bot.on('polling_error', err => {
+    console.error('[Telegram] Polling error:', err.message);
+  });
+
+  if (onMessage) {
+    bot.on('message', msg => {
+      Promise.resolve(onMessage(msg)).catch(err => {
+        console.error('[Telegram] Message handler error:', err.message);
+      });
+    });
+  }
+
   return bot;
 }
 

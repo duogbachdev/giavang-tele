@@ -6,12 +6,14 @@ export function formatVND(amount) {
 
 // Format snapshot thanh message Telegram (Markdown)
 export function formatMessage(snapshots, opts = {}) {
-  const { isPeriodic = false, changes = null } = opts;
+  const { isPeriodic = false, changes = null, isCurrent = false } = opts;
   const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 
-  let msg = isPeriodic
-    ? `*BAO CAO GIA VANG DINH KY*\n_${now}_\n\n`
-    : `*GIA VANG THAY DOI*\n_${now}_\n\n`;
+  let title = 'GIA VANG THAY DOI';
+  if (isPeriodic) title = 'BAO CAO GIA VANG DINH KY';
+  if (isCurrent) title = 'GIA VANG HIEN TAI';
+
+  let msg = `*${title}*\n_${now}_\n\n`;
 
   for (const snap of snapshots) {
     if (!snap) continue;

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// BTMC - Bao Tin Minh Chau, public API
-// API tra ve hon 400 items (ca bac va vang). Loc ra cac loai vang chinh.
+// BTMC - Bao Tin Minh Chau, public API.
+// Gia vang trong API la VND/chi, quy doi sang VND/luong.
 export async function fetchBTMC() {
   try {
     const url = 'http://api.btmc.vn/api/BTMCAPI/getpricebtmc?key=3kd8ub1llcg9t45hnoh8hmn7t5kc2v';
@@ -41,7 +41,7 @@ export async function fetchBTMC() {
       if (buy <= 0 || sell <= 0) return;
 
       seen.add(matched);
-      items.push({ name, buy, sell });
+      items.push({ name, buy: buy * 10, sell: sell * 10 });
     });
 
     if (items.length === 0) return null;

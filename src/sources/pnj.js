@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// PNJ - dung API JSON tu edge-api.pnj.io (don vi nghin/luong)
+// PNJ - API tra gia theo nghin VND/chi, quy doi sang VND/luong.
 export async function fetchPNJ() {
   try {
     const url = 'https://edge-api.pnj.io/ecom-frontend/v1/get-gold-price';
@@ -22,8 +22,8 @@ export async function fetchPNJ() {
       .filter(x => wanted.includes(x.masp))
       .map(x => ({
         name: x.tensp,
-        buy: parseFloat(x.giamua) * 1000,
-        sell: parseFloat(x.giaban) * 1000
+        buy: parseFloat(x.giamua) * 10000,
+        sell: parseFloat(x.giaban) * 10000
       }))
       .filter(x => x.buy > 0 && x.sell > 0);
 
