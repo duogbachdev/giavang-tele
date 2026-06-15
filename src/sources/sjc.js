@@ -1,6 +1,42 @@
 import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 let fallbackApiKey = null;
+
+function normalize(text) {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+}
+
+async function fetchSJCMirror() {
+  const res = await axios.get('https://giavang.org/trong-nuoc/sjc/', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GoldPriceBot/1.0)' },
+    timeout: 10000
+  });
+  const $ = cheerio.load(res.data);
+  let item = null;
+
+  $('table').first().find('tr').each((_, element) => {
+    if (item) return;
+    const cells = $(element).find('td').map((__, cell) => $(cell).text().trim()).get();
+    if (cells.length < 3 || !normalize(cells[0]).includes('VANG SJC 1L')) return;
+
+    const buy = parseFloat(cells[cells.length - 2].replace(/[,.]/g, '')) || 0;
+    const sell = parseFloat(cells[cells.length - 1].replace(/[,.]/g, '')) || 0;
+    if (buy > 0 && sell > 0) {
+      item = { name: 'Vang mieng SJC 1 luong', buy: buy * 1000, sell: sell * 1000 };
+    }
+  });
+
+  if (!item) throw new Error('khong tim thay bang gia');
+  return {
+    source: 'SJC',
+    items: [item],
+    updatedAt: new Date().toISOString()
+  };
+}
 
 async function fetchSJCFallback() {
   if (!fallbackApiKey) {
@@ -16,7 +52,7 @@ async function fetchSJCFallback() {
       timeout: 15000
     });
     const price = res.data?.results?.[0];
-    if (!price) return null;
+    if (!price) throw new Error('khong co du lieu gia');
 
     return {
       source: 'SJC',
@@ -37,38 +73,11 @@ async function fetchSJCFallback() {
   }
 }
 
-// SJC chinh thuc thuong chan request tu server, nen co API du phong.
 export async function fetchSJC() {
   try {
-    const url = 'https://sjc.com.vn/GoldPrice/Services/PriceService.ashx';
-    const res = await axios.post(url, 'method=GetSJCGoldPriceByDate&toDate=', {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': '*/*',
-        'Origin': 'https://sjc.com.vn',
-        'Referer': 'https://sjc.com.vn/'
-      },
-      timeout: 15000
-    });
-
-    const list = res.data?.data;
-    if (!Array.isArray(list) || list.length === 0) return null;
-
-    const sjc = list.find(d => d.TypeName?.includes('SJC')) || list[0];
-    if (!sjc) return null;
-
-    return {
-      source: 'SJC',
-      items: [{
-        name: `Vang mieng SJC (${sjc.BranchName || 'HCM'})`,
-        buy: parseFloat(sjc.Buy) * 1000,
-        sell: parseFloat(sjc.Sell) * 1000
-      }],
-      updatedAt: sjc.UpdateTime || new Date().toISOString()
-    };
+    return await fetchSJCMirror();
   } catch (err) {
-    console.warn('[SJC] Official API error:', err.message, '- dung API du phong');
+    console.warn('[SJC] Mirror error:', err.message, '- dung API du phong');
     try {
       return await fetchSJCFallback();
     } catch (fallbackErr) {

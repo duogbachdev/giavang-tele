@@ -1,10 +1,12 @@
 import TelegramBot from 'node-telegram-bot-api';
+import { createHash } from 'crypto';
 
 let bot = null;
+let webhookPath = null;
 
-export function initBot(token, onMessage) {
+export async function initBot(token, onMessage, webhookBaseUrl) {
   if (!token) throw new Error('TELEGRAM_BOT_TOKEN is required');
-  bot = new TelegramBot(token, { polling: true });
+  bot = new TelegramBot(token, { polling: false });
 
   bot.on('polling_error', err => {
     console.error('[Telegram] Polling error:', err.message);
@@ -18,7 +20,25 @@ export function initBot(token, onMessage) {
     });
   }
 
+  if (webhookBaseUrl) {
+    const secret = createHash('sha256').update(token).digest('hex');
+    webhookPath = `/telegram-webhook/${secret}`;
+    const webhookUrl = `${webhookBaseUrl.replace(/\/$/, '')}${webhookPath}`;
+    await bot.setWebhook(webhookUrl, { drop_pending_updates: true });
+    console.log('[Telegram] Webhook da bat');
+  } else {
+    await bot.deleteWebhook({ drop_pending_updates: true });
+    await bot.startPolling();
+    console.log('[Telegram] Polling da bat');
+  }
+
   return bot;
+}
+
+export function processWebhook(path, update) {
+  if (!bot || !webhookPath || path !== webhookPath) return false;
+  bot.processUpdate(update);
+  return true;
 }
 
 export async function stopBot() {

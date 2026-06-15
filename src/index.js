@@ -4,8 +4,12 @@ import { fetchSJC } from './sources/sjc.js';
 import { fetchDOJI } from './sources/doji.js';
 import { fetchPNJ } from './sources/pnj.js';
 import { fetchBTMC } from './sources/btmc.js';
-import { initBot, sendMessage, stopBot } from './telegram.js';
+import { initBot, processWebhook, sendMessage, stopBot } from './telegram.js';
 import { formatMessage, diffSnapshots } from './formatter.js';
+
+const renderWebhookUrl = process.env.RENDER_EXTERNAL_HOSTNAME
+  ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`
+  : process.env.RENDER_EXTERNAL_URL;
 
 const config = {
   token: process.env.TELEGRAM_BOT_TOKEN,
@@ -14,7 +18,8 @@ const config = {
   notifyOnChangeOnly: process.env.NOTIFY_ON_CHANGE_ONLY !== 'false',
   periodicEvery: parseInt(process.env.PERIODIC_REPORT_EVERY || '12', 10),
   sources: (process.env.SOURCES || 'sjc,doji,pnj,btmc').split(',').map(s => s.trim()),
-  port: parseInt(process.env.PORT || '3000', 10)
+  port: parseInt(process.env.PORT || '3000', 10),
+  webhookBaseUrl: process.env.TELEGRAM_WEBHOOK_URL || renderWebhookUrl
 };
 
 const fetchers = {
@@ -122,6 +127,26 @@ async function tick() {
 // HTTP server cho Render health check
 function startHealthServer() {
   healthServer = http.createServer((req, res) => {
+    if (req.method === 'POST' && req.url?.startsWith('/telegram-webhook/')) {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk;
+        if (body.length > 1024 * 1024) req.destroy();
+      });
+      req.on('end', () => {
+        try {
+          const handled = processWebhook(req.url, JSON.parse(body));
+          res.writeHead(handled ? 200 : 404);
+          res.end();
+        } catch (err) {
+          console.error('[Telegram] Webhook error:', err.message);
+          res.writeHead(400);
+          res.end();
+        }
+      });
+      return;
+    }
+
     if (req.url === '/health' || req.url === '/') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
@@ -155,14 +180,15 @@ async function main() {
     process.exit(1);
   }
 
-  initBot(config.token, handleTelegramMessage);
   startHealthServer();
+  await initBot(config.token, handleTelegramMessage, config.webhookBaseUrl);
 
   console.log('[Boot] Cau hinh:', {
     sources: config.sources,
     intervalMs: config.intervalMs,
     notifyOnChangeOnly: config.notifyOnChangeOnly,
-    periodicEvery: config.periodicEvery
+    periodicEvery: config.periodicEvery,
+    telegramMode: config.webhookBaseUrl ? 'webhook' : 'polling'
   });
 
   await tick();
