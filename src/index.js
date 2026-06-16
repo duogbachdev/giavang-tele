@@ -9,7 +9,8 @@ import { formatMessage, diffSnapshots } from './formatter.js';
 
 const renderWebhookUrl = process.env.RENDER_EXTERNAL_HOSTNAME
   ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`
-  : process.env.RENDER_EXTERNAL_URL;
+  : process.env.RENDER_EXTERNAL_URL
+    || (process.env.RENDER_SERVICE_NAME ? `https://${process.env.RENDER_SERVICE_NAME}.onrender.com` : null);
 
 const config = {
   token: process.env.TELEGRAM_BOT_TOKEN,
