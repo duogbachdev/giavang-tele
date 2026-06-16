@@ -9,7 +9,8 @@ Tool Node.js quet gia vang Vietnam realtime tu nhieu nguon (SJC, DOJI, PNJ, BTMC
 - Bao cao dinh ky moi N lan quet (tuy chon)
 - HTTP health endpoint cho Render free tier (chong sleep)
 - 4 nguon: SJC, DOJI, PNJ, BTMC
-- Moi nguoi dung co the gui `/gia` de nhan gia vang trong chat cua ho
+- Moi nguoi dung co the gui `/start` de dang ky nhan thong bao tu dong
+- Moi nguoi dung co the gui `/gia` de nhan gia vang hien tai trong chat cua ho
 
 ## Cai dat local
 
@@ -56,6 +57,7 @@ Cach 2 - Group:
 5. Them Environment Variables:
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_CHAT_ID`
+   - `SUBSCRIBER_CHAT_IDS` (tuy chon, vi du `123456789,-100123456789`)
    - `SCAN_INTERVAL_MS` (mac dinh 300000 = 5 phut)
    - `NOTIFY_ON_CHANGE_ONLY=true`
    - `PERIODIC_REPORT_EVERY=12`
@@ -74,7 +76,8 @@ Render free se sleep sau 15 phut khong co request. Co 2 cach giu thuc:
 | Bien | Mac dinh | Mo ta |
 |------|----------|-------|
 | `TELEGRAM_BOT_TOKEN` | - | Bat buoc |
-| `TELEGRAM_CHAT_ID` | - | Bat buoc |
+| `TELEGRAM_CHAT_ID` | - | Bat buoc, chat admin mac dinh nhan thong bao |
+| `SUBSCRIBER_CHAT_IDS` | - | Tuy chon, danh sach chat ID nhan thong bao tu dong ban dau |
 | `SCAN_INTERVAL_MS` | 300000 | Khoang quet (ms) |
 | `NOTIFY_ON_CHANGE_ONLY` | true | Chi gui khi gia thay doi |
 | `PERIODIC_REPORT_EVERY` | 12 | Bao cao dinh ky moi N lan quet (12 = moi 1h neu interval 5p) |
@@ -83,11 +86,21 @@ Render free se sleep sau 15 phut khong co request. Co 2 cach giu thuc:
 
 ## Lenh Telegram
 
-- `/start` hoac `/help`: Hien huong dan
-- `/gia`: Lay va gui gia vang hien tai vao dung cuoc chat vua yeu cau
+| Lenh | Tac dung |
+|------|----------|
+| `/start` | Dang ky chat hien tai nhan thong bao tu dong |
+| `/stop` | Huy nhan thong bao tu dong |
+| `/help` | Hien bang huong dan |
+| `/gia` | Lay va gui gia vang hien tai vao dung cuoc chat vua yeu cau |
+| `/subscribers` | Admin xem danh sach chat dang nhan thong bao |
 
-`TELEGRAM_CHAT_ID` chi la noi nhan thong bao tu dong. Cac lenh tren se phan hoi
-truc tiep cho bat ky nguoi dung nao da mo bot va bam Start.
+`TELEGRAM_CHAT_ID` se duoc tu dong them vao danh sach subscriber khi bot khoi
+dong. Moi nguoi dung hoac group gui `/start` cung se duoc luu vao danh sach va
+nhan thong bao tu dong tu cac lan quet sau.
+
+Luu y tren Render free: file `data/subscribers.json` la runtime storage. Neu
+service bi rebuild/redeploy, danh sach nguoi dung co the can dang ky lai bang
+`/start`, tru khi ban dua chat ID co dinh vao `SUBSCRIBER_CHAT_IDS`.
 
 ## Cau truc
 
@@ -95,6 +108,7 @@ truc tiep cho bat ky nguoi dung nao da mo bot va bam Start.
 src/
   index.js          # Entry point + scheduler + HTTP health
   telegram.js       # Telegram bot client
+  subscribers.js    # Luu danh sach chat nhan thong bao
   formatter.js      # Format message + diff
   sources/
     sjc.js

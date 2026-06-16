@@ -6,6 +6,13 @@ import { fetchPNJ } from './sources/pnj.js';
 import { fetchBTMC } from './sources/btmc.js';
 import { initBot, processWebhook, sendMessage, stopBot } from './telegram.js';
 import { formatMessage, diffSnapshots } from './formatter.js';
+import {
+  addSubscriber,
+  getSubscriberChatIds,
+  initSubscribers,
+  listSubscribers,
+  removeSubscriber
+} from './subscribers.js';
 
 const renderWebhookUrl = process.env.RENDER_EXTERNAL_HOSTNAME
   ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`
@@ -20,7 +27,8 @@ const config = {
   periodicEvery: parseInt(process.env.PERIODIC_REPORT_EVERY || '12', 10),
   sources: (process.env.SOURCES || 'sjc,doji,pnj,btmc').split(',').map(s => s.trim()),
   port: parseInt(process.env.PORT || '3000', 10),
-  webhookBaseUrl: process.env.TELEGRAM_WEBHOOK_URL || renderWebhookUrl
+  webhookBaseUrl: process.env.TELEGRAM_WEBHOOK_URL || renderWebhookUrl,
+  seedSubscriberIds: [process.env.TELEGRAM_CHAT_ID, process.env.SUBSCRIBER_CHAT_IDS]
 };
 
 const fetchers = {
@@ -35,6 +43,17 @@ let scanCount = 0;
 let lastScanAt = null;
 let lastError = null;
 let healthServer = null;
+
+const helpMessage = `*BOT GIA VANG*
+
+| Lenh | Tac dung |
+|---|---|
+| /gia | Xem gia vang hien tai |
+| /start | Dang ky nhan thong bao tu dong |
+| /stop | Huy nhan thong bao tu dong |
+| /help | Xem huong dan |
+
+Bot se tu dong gui thong bao khi gia thay doi hoac den lich bao cao dinh ky.`;
 
 async function scanAll() {
   const tasks = config.sources
@@ -51,8 +70,37 @@ async function handleTelegramMessage(message) {
   const chatId = message.chat.id;
   const command = text.split(/\s+/)[0].toLowerCase().split('@')[0];
 
-  if (command === '/start' || command === '/help') {
-    await sendMessage(chatId, '*BOT GIA VANG*\n\nGui /gia de xem gia vang hien tai.');
+  if (command === '/start') {
+    const { existed } = await addSubscriber(message.chat);
+    await sendMessage(chatId, existed
+      ? `${helpMessage}\n\n_Ban da co trong danh sach nhan thong bao._`
+      : `${helpMessage}\n\n_Da dang ky nhan thong bao tu dong._`);
+    return;
+  }
+
+  if (command === '/help') {
+    await sendMessage(chatId, helpMessage);
+    return;
+  }
+
+  if (command === '/stop') {
+    const existed = await removeSubscriber(chatId);
+    await sendMessage(chatId, existed
+      ? 'Da huy nhan thong bao tu dong. Gui /start de dang ky lai.'
+      : 'Chat nay chua co trong danh sach nhan thong bao. Gui /start de dang ky.');
+    return;
+  }
+
+  if (command === '/subscribers') {
+    if (String(chatId) !== String(config.chatId)) {
+      await sendMessage(chatId, 'Lenh nay chi danh cho admin.');
+      return;
+    }
+    const rows = listSubscribers();
+    const body = rows.length
+      ? rows.map((row, index) => `${index + 1}. ${row.title} (${row.chatId})`).join('\n')
+      : 'Chua co subscriber nao.';
+    await sendMessage(chatId, `*DANH SACH NHAN THONG BAO*\n\n${body}`);
     return;
   }
 
@@ -74,8 +122,15 @@ async function handleTelegramMessage(message) {
 
   // Trong group chi phan hoi lenh, tranh bot tra loi moi tin nhan.
   if (message.chat.type === 'private') {
-    await sendMessage(chatId, 'Gui /gia de xem gia vang hien tai.');
+    await sendMessage(chatId, 'Gui /gia de xem gia vang hien tai, /start de nhan thong bao tu dong.');
   }
+}
+
+async function sendToSubscribers(text) {
+  const chatIds = getSubscriberChatIds();
+  const results = await Promise.allSettled(chatIds.map(chatId => sendMessage(chatId, text)));
+  const okCount = results.filter(result => result.status === 'fulfilled' && result.value).length;
+  console.log(`[Telegram] Da gui ${okCount}/${chatIds.length} subscriber`);
 }
 
 async function tick() {
@@ -116,8 +171,7 @@ async function tick() {
 
   if (shouldSend) {
     const msg = formatMessage(snapshots, { isPeriodic, changes });
-    const ok = await sendMessage(config.chatId, msg);
-    if (ok) console.log('[Telegram] Da gui');
+    await sendToSubscribers(msg);
   } else {
     console.log('[Scan] Khong co thay doi, bo qua');
   }
@@ -156,7 +210,8 @@ function startHealthServer() {
         lastScanAt,
         lastError,
         sources: config.sources,
-        intervalMs: config.intervalMs
+        intervalMs: config.intervalMs,
+        subscriberCount: getSubscriberChatIds().length
       }));
     } else {
       res.writeHead(404);
@@ -182,6 +237,7 @@ async function main() {
   }
 
   startHealthServer();
+  await initSubscribers(config.seedSubscriberIds);
   await initBot(config.token, handleTelegramMessage, config.webhookBaseUrl);
 
   console.log('[Boot] Cau hinh:', {
@@ -189,6 +245,7 @@ async function main() {
     intervalMs: config.intervalMs,
     notifyOnChangeOnly: config.notifyOnChangeOnly,
     periodicEvery: config.periodicEvery,
+    subscriberCount: getSubscriberChatIds().length,
     telegramMode: config.webhookBaseUrl ? 'webhook' : 'polling'
   });
 
